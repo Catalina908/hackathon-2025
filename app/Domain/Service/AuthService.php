@@ -45,6 +45,25 @@ class AuthService
         // TODO: make sur ethe user exists and the password matches
         // TODO: don't forget to store in session user data needed afterwards
 
-        return true;
+          $user = $this->users->findByUsername($username);
+
+    if (!$user) {
+        return false;
+    }
+
+    if (!password_verify($password, $user->getPasswordHash())) {
+        return false;
+    }
+
+    // ✅ Start session and store user ID
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+
+    session_regenerate_id(true); // prevent session fixation
+    $_SESSION['user_id'] = $user->getId();
+    $_SESSION['username'] = $user->getUsername();
+
+    return true;
     }
 }
