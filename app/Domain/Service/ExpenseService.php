@@ -73,6 +73,15 @@ public function years(User $user): array
     ): void {
         // TODO: implement this to update expense entity, perform validation, and persist
     }
+    public function findExpenseById(int $id): ?Expense
+{
+    return $this->expenses->find($id);
+}
+
+public function deleteExpense(int $id): void
+{
+    $this->expenses->delete($id);
+}
 
     public function importFromCsv(User $user, UploadedFileInterface $csvFile): int
     {

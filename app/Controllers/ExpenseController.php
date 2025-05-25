@@ -292,6 +292,32 @@ class ExpenseController extends BaseController
         // - call the repository method to delete the expense
         // - redirect to the "expenses.index" page
 
-        return $response;
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+
+    $expenseId = (int)($routeParams['id'] ?? 0);
+
+    // Find the expense
+    $expense = $this->expenseService->findExpenseById($expenseId);
+
+    if (!$expense) {
+        // Optional: flash message or logging
+        return $response->withHeader('Location', '/expenses')->withStatus(302);
+    }
+
+    // Ensure the user owns the expense
+    if ($_SESSION['user_id'] !== $expense->getUserId()) {
+        return $response->withStatus(403)->write('Forbidden');
+    }
+
+    // Delete it
+    try {
+        $this->expenseService->deleteExpense($expenseId);
+    } catch (\Throwable $e) {
+        // Optional: flash error
+    }
+
+    return $response->withHeader('Location', '/expenses')->withStatus(302);
     }
 }

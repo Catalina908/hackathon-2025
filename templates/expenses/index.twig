@@ -52,6 +52,9 @@
         {% endfor %}
     </tbody>
 </table>
+<form action="/expenses/{{ expense.id }}/delete" method="POST" class="inline" onsubmit="return confirm('Are you sure?')">
+    <button type="submit" class="text-red-500 hover:text-red-400">Delete</button>
+</form>
 
 <!-- Pagination -->
 <div class="flex items-center justify-between mt-4 text-gray-300">
