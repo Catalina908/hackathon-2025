@@ -75,7 +75,24 @@ class ExpenseController extends BaseController
         // Hints:
         // - obtain the list of available categories from configuration and pass to the view
 
-        return $this->render($response, 'expenses/create.twig', ['categories' => []]);
+     
+     if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+
+    $categories = ['groceries', 'utilities', 'transport', 'entertainment', 'housing', 'health', 'other'];
+
+    $formValues = $_SESSION['form_values'] ?? [];
+    $formErrors = $_SESSION['form_errors'] ?? [];
+
+    // Clear flash data right after reading
+    unset($_SESSION['form_values'], $_SESSION['form_errors']);
+
+    return $this->render($response, 'expenses/create.twig', [
+        'categories' => $categories,
+        'values' => $formValues,
+        'errors' => $formErrors,
+    ]);
     }
 
     public function store(Request $request, Response $response): Response
@@ -88,7 +105,64 @@ class ExpenseController extends BaseController
         // - rerender the "expenses.create" page with included errors in case of failure
         // - redirect to the "expenses.index" page in case of success
 
-        return $response;
+        if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+
+    $data = $request->getParsedBody();
+
+    $values = [
+        'date' => $data['date'] ?? '',
+        'category' => $data['category'] ?? '',
+        'amount' => $data['amount'] ?? '',
+        'description' => $data['description'] ?? '',
+    ];
+
+    $errors = [];
+
+    // ✅ Validation
+    $today = new \DateTimeImmutable('today');
+    $expenseDate = \DateTimeImmutable::createFromFormat('Y-m-d', $values['date']);
+
+    if (!$expenseDate || $expenseDate > $today) {
+        $errors['date'] = 'Date cannot be in the future.';
+    }
+
+    if (empty($values['category'])) {
+        $errors['category'] = 'Category must be selected.';
+    }
+
+    if (!is_numeric($values['amount']) || (float)$values['amount'] <= 0) {
+        $errors['amount'] = 'Amount must be greater than 0.';
+    }
+
+    if (empty(trim($values['description']))) {
+        $errors['description'] = 'Description cannot be empty.';
+    }
+
+    if (!empty($errors)) {
+        $_SESSION['form_errors'] = $errors;
+        $_SESSION['form_values'] = $values;
+
+        return $response
+            ->withHeader('Location', '/expenses/create')
+            ->withStatus(302);
+    }
+
+    $userId = $_SESSION['user_id'] ?? null;
+    if (!$userId) {
+        return $response->withHeader('Location', '/login')->withStatus(302);
+    }
+
+    $user = new \App\Domain\Entity\User($userId, $_SESSION['username'], '', new \DateTimeImmutable());
+
+    $this->expenseService->create(
+        $user,
+        (float)$values['amount'],
+        $values['description'],
+        $expenseDate,
+        $values['category']
+    );
+
+    return $response->withHeader('Location', '/expenses')->withStatus(302);
     }
 
     public function edit(Request $request, Response $response, array $routeParams): Response
