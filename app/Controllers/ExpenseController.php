@@ -30,17 +30,42 @@ class ExpenseController extends BaseController
         // - use the expense service to fetch expenses for the current user
 
         // parse request parameters
-        $userId = 1; // TODO: obtain logged-in user ID from session
-        $page = (int)($request->getQueryParams()['page'] ?? 1);
-        $pageSize = (int)($request->getQueryParams()['pageSize'] ?? self::PAGE_SIZE);
+        // Start session if not active
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
 
-        $expenses = $this->expenseService->list($userId, $page, $pageSize);
+    // Get user ID from session
+    $userId = $_SESSION['user_id'] ?? null;
+    if (!$userId) {
+        return $response->withHeader('Location', '/login')->withStatus(302);
+    }
 
-        return $this->render($response, 'expenses/index.twig', [
-            'expenses' => $expenses,
-            'page'     => $page,
-            'pageSize' => $pageSize,
-        ]);
+    $query = $request->getQueryParams();
+
+    $year = isset($query['year']) ? (int)$query['year'] : (int)date('Y');
+    $month = isset($query['month']) ? (int)$query['month'] : (int)date('n');
+    $page = isset($query['page']) ? max((int)$query['page'], 1) : 1;
+    $pageSize = self::PAGE_SIZE;
+    $from = ($page - 1) * $pageSize;
+
+    $user = new \App\Domain\Entity\User($userId, $_SESSION['username'] ?? '', '', new \DateTimeImmutable());
+
+    $expenses = $this->expenseService->list($user, $year, $month, $page, $pageSize);
+    $total = $this->expenseService->count($user, $year, $month);
+    $years = $this->expenseService->years($user);
+
+    return $this->render($response, 'expenses/index.twig', [
+        'expenses' => $expenses,
+        'year' => $year,
+        'month' => $month,
+        'years' => $years,
+        'page' => $page,
+        'pageSize' => $pageSize,
+        'total' => $total,
+        'hasPrev' => $page > 1,
+        'hasNext' => $page * $pageSize < $total
+    ]);
     }
 
     public function create(Request $request, Response $response): Response
