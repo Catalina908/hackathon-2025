@@ -32,7 +32,46 @@ class AuthController extends BaseController
     {
         // TODO: call corresponding service to perform user registration
 
+       $data = (array) $request->getParsedBody();
+    $username = trim($data['username'] ?? '');
+    $password = $data['password'] ?? '';
+
+    $errors = [];
+
+    // ✅ Validation rules
+    if (strlen($username) < 4) {
+        $errors['username'] = 'Username must be at least 4 characters long.';
+    }
+
+    if (!preg_match('/^(?=.*\d).{8,}$/', $password)) {
+        $errors['password'] = 'Password must be at least 8 characters long and include at least one number.';
+    }
+
+    if (!empty($errors)) {
+        $this->logger->warning('Registration validation failed', $errors);
+        return $this->render($response, 'auth/register.twig', [
+            'errors' => $errors,
+            'username' => $username,
+            'password' => $password
+        ]);
+    }
+
+    // ✅ Try to register using AuthService
+    try {
+        $this->authService->register($username, $password);
+        $this->logger->info("New user registered: $username");
+
         return $response->withHeader('Location', '/login')->withStatus(302);
+    } catch (\RuntimeException $e) {
+        $errors['username'] = $e->getMessage();
+        $this->logger->error('Registration failed: ' . $e->getMessage());
+
+        return $this->render($response, 'auth/register.twig', [
+            'errors' => $errors,
+            'username' => $username,
+            'password' => $password
+        ]);
+    }
     }
 
     public function showLogin(Request $request, Response $response): Response

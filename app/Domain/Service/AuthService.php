@@ -19,10 +19,24 @@ class AuthService
         // TODO: make sure password is not stored in plain, and proper PHP functions are used for that
 
         // TODO: here is a sample code to start with
-        $user = new User(null, $username, $password, new \DateTimeImmutable());
-        $this->users->save($user);
+          $existing = $this->users->findByUsername($username);
+    if ($existing !== null) {
+        throw new \RuntimeException('Username already exists.');
+    }
 
-        return $user;
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    $user = new User(
+        id: null,
+        username: $username,
+        passwordHash: $hashedPassword,
+        createdAt: new \DateTimeImmutable()
+    );
+
+    $this->users->save($user);
+
+    return $user;
+   
     }
 
     public function attempt(string $username, string $password): bool
