@@ -103,6 +103,18 @@ class AuthController extends BaseController
     {
         // TODO: handle logout by clearing session data and destroying session
 
-        return $response->withHeader('Location', '/login')->withStatus(302);
+         // ✅ Start session if needed
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+
+    // ✅ Clear session variables and destroy
+    $_SESSION = [];
+    session_destroy();
+
+    $this->logger->info('User logged out.');
+
+    // ✅ Redirect to login
+    return $response->withHeader('Location', '/login')->withStatus(302);
     }
 }

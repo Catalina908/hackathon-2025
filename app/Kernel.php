@@ -18,6 +18,7 @@ use Slim\App;
 use Slim\Factory\AppFactory;
 use Slim\Views\Twig;
 use Slim\Views\TwigMiddleware;
+use Dotenv\Dotenv;
 
 use function DI\autowire;
 use function DI\factory;
@@ -73,9 +74,16 @@ class Kernel
 
         // Make current user ID globally available to twig templates
         // TODO: change the following line to set the user ID stored in the session, for when user is logged
-        $loggedInUserId = null;
-        $twig = $container->get(Twig::class);
-        $twig->getEnvironment()->addGlobal('currentUserId', $loggedInUserId);
+       
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+    $loggedInUserId = $_SESSION['user_id'] ?? null;
+    $loggedInUsername = $_SESSION['username'] ?? null;
+
+    $twig = $container->get(Twig::class);
+    $twig->getEnvironment()->addGlobal('currentUserId', $loggedInUserId);
+    $twig->getEnvironment()->addGlobal('currentUsername', $loggedInUsername);
 
         return $app;
     }
