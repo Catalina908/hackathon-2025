@@ -35,6 +35,37 @@ class ExpenseService
         $expense = new Expense(null, $user->id, $date, $category, (int)$amount, $description);
         $this->expenses->save($expense);
     }
+    public function getTotalForMonth(User $user, int $year, int $month): float
+{
+    return $this->expenses->sumAmounts([
+        'user_id' => $user->id,
+        'year' => $year,
+        'month' => $month,
+    ]);
+}
+
+public function getTotalsPerCategory(User $user, int $year, int $month): array
+{
+    return $this->expenses->sumAmountsByCategory([
+        'user_id' => $user->id,
+        'year' => $year,
+        'month' => $month,
+    ]);
+}
+
+public function getAveragesPerCategory(User $user, int $year, int $month): array
+{
+    return $this->expenses->averageAmountsByCategory([
+        'user_id' => $user->id,
+        'year' => $year,
+        'month' => $month,
+    ]);
+}
+
+public function getYearsWithExpenses(User $user): array
+{
+    return $this->expenses->listExpenditureYears($user);
+}
 
     public function update(
         Expense $expense,
