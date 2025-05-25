@@ -173,10 +173,41 @@ class ExpenseController extends BaseController
         // - obtain the list of available categories from configuration and pass to the view
         // - load the expense to be edited by its ID (use route params to get it)
         // - check that the logged-in user is the owner of the edited expense, and fail with 403 if not
+          if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
 
-        $expense = ['id' => 1];
+    $expenseId = (int) ($routeParams['id'] ?? 0);
+    $expense = $this->expenseService->findExpenseById($expenseId);
 
-        return $this->render($response, 'expenses/edit.twig', ['expense' => $expense, 'categories' => []]);
+    if (!$expense) {
+        return $response->withStatus(404)->write('Expense not found');
+    }
+
+    // Check user ownership
+    if ($_SESSION['user_id'] !== $expense->getUserId()) {
+        return $response->withStatus(403)->write('Forbidden');
+    }
+
+    $values = $_SESSION['form_values'] ?? [
+        'date' => $expense->getDate()->format('Y-m-d'),
+        'category' => $expense->getCategory(),
+        'amount' => number_format($expense->getAmountCents() / 100, 2, '.', ''),
+        'description' => $expense->getDescription()
+    ];
+
+    $errors = $_SESSION['form_errors'] ?? [];
+    unset($_SESSION['form_values'], $_SESSION['form_errors']);
+
+    $categories = ['groceries', 'utilities', 'transport', 'entertainment', 'housing', 'health', 'other'];
+
+    return $this->render($response, 'expenses/edit.twig', [
+        'expense' => $expense,
+        'values' => $values,
+        'errors' => $errors,
+        'categories' => $categories
+    ]);
+       
     }
 
     public function update(Request $request, Response $response, array $routeParams): Response
@@ -190,8 +221,66 @@ class ExpenseController extends BaseController
         // - update the expense entity with the new values
         // - rerender the "expenses.edit" page with included errors in case of failure
         // - redirect to the "expenses.index" page in case of success
+         if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
 
-        return $response;
+    $expenseId = (int) ($routeParams['id'] ?? 0);
+    $expense = $this->expenseService->findExpenseById($expenseId);
+
+    if (!$expense) {
+        return $response->withStatus(404)->write('Expense not found');
+    }
+
+    if ($_SESSION['user_id'] !== $expense->getUserId()) {
+        return $response->withStatus(403)->write('Forbidden');
+    }
+
+    $data = $request->getParsedBody();
+    $values = [
+        'date' => $data['date'] ?? '',
+        'category' => $data['category'] ?? '',
+        'amount' => $data['amount'] ?? '',
+        'description' => $data['description'] ?? ''
+    ];
+
+    $errors = [];
+
+    // 🔍 Validation
+    $today = new \DateTimeImmutable();
+    $date = \DateTimeImmutable::createFromFormat('Y-m-d', $values['date']);
+
+    if (!$date || $date > $today) {
+        $errors['date'] = 'Date cannot be in the future.';
+    }
+
+    if (empty($values['category'])) {
+        $errors['category'] = 'Category is required.';
+    }
+
+    if (!is_numeric($values['amount']) || (float) $values['amount'] <= 0) {
+        $errors['amount'] = 'Amount must be greater than 0.';
+    }
+
+    if (empty(trim($values['description']))) {
+        $errors['description'] = 'Description is required.';
+    }
+
+    if (!empty($errors)) {
+        $_SESSION['form_errors'] = $errors;
+        $_SESSION['form_values'] = $values;
+        return $response->withHeader('Location', "/expenses/{$expenseId}/edit")->withStatus(302);
+    }
+
+    $this->expenseService->update(
+        $expense,
+        (float) $values['amount'],
+        $values['description'],
+        $date,
+        $values['category']
+    );
+
+    return $response->withHeader('Location', '/expenses')->withStatus(302);
     }
 
     public function destroy(Request $request, Response $response, array $routeParams): Response

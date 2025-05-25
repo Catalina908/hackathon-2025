@@ -3,7 +3,7 @@
 {% block content %}
     <h1 class="text-2xl font-bold mb-4">Add Expense</h1>
     <section class="mb-8">
-        <form action="/expenses" method="POST" class="max-w-sm mx-auto">
+        <form action="/expenses"{{ expense.id }} method="POST" class="max-w-sm mx-auto">
             <div class="mb-4 flex items-center">
                 <label for="date" class="w-24 text-gray-300 font-bold">Date:</label>
                 <input type="date" id="date" name="date" required value="{{ values.date|default('') }}">
