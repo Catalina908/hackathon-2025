@@ -122,3 +122,16 @@
         </form>
     </section>
 {% endblock %}
+
+<section class="mt-8">
+    <h2 class="text-xl font-bold mb-4">Import Expenses from CSV</h2>
+    <form action="/expenses/import" method="POST" enctype="multipart/form-data" class="flex gap-4 items-center">
+        <label for="csv" class="text-sm font-bold text-gray-300">CSV File</label>
+        <input type="file" id="csv" name="csv" accept=".csv" required
+               class="border rounded py-2 px-3 text-gray-500 bg-gray-800 border-gray-600">
+        <button type="submit"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Import
+        </button>
+    </form>
+</section>

@@ -8,6 +8,9 @@ use App\Domain\Service\ExpenseService;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Views\Twig;
+use Psr\Log\LoggerInterface;
+use Slim\Psr7\UploadedFile;
+use DateTimeImmutable;
 
 class ExpenseController extends BaseController
 {
@@ -16,6 +19,7 @@ class ExpenseController extends BaseController
     public function __construct(
         Twig $view,
         private readonly ExpenseService $expenseService,
+          private LoggerInterface $logger,
     ) {
         parent::__construct($view);
     }
@@ -106,4 +110,68 @@ class ExpenseController extends BaseController
 
         return $response;
     }
+    public function import(Request $request, Response $response): Response
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+    $userId = $_SESSION['user_id'] ?? null;
+    if (!$userId) {
+        return $response->withHeader('Location', '/login')->withStatus(302);
+    }
+
+    $uploadedFiles = $request->getUploadedFiles();
+    $csvFile = $uploadedFiles['csv'] ?? null;
+
+    if (!$csvFile instanceof UploadedFile || $csvFile->getError() !== UPLOAD_ERR_OK) {
+        return $response->withHeader('Location', '/expenses')->withStatus(302);
+    }
+
+    $stream = $csvFile->getStream()->detach();
+    $handle = fopen($stream, 'r');
+    if (!$handle) {
+        return $response->withHeader('Location', '/expenses')->withStatus(302);
+    }
+
+    $user = new \App\Domain\Entity\User($userId, $_SESSION['username'], '', new \DateTimeImmutable());
+
+    $imported = 0;
+    $skipped = [];
+
+    $validCategories = ['groceries', 'utilities', 'transport', 'entertainment', 'housing', 'health', 'other'];
+    $seen = [];
+
+    while (($row = fgetcsv($handle)) !== false) {
+        if (count($row) < 4) continue;
+
+        [$dateStr, $desc, $amountStr, $category] = $row;
+        $key = md5("$dateStr|$desc|$amountStr|$category");
+
+        // Duplicate or invalid category
+        if (isset($seen[$key]) || !in_array(strtolower($category), $validCategories)) {
+            $skipped[] = implode(',', $row);
+            continue;
+        }
+
+        try {
+            $date = new DateTimeImmutable($dateStr);
+            $amount = (float)$amountStr;
+
+            $this->expenseService->create($user, $amount, $desc, $date, $category);
+            $imported++;
+            $seen[$key] = true;
+
+        } catch (\Exception $e) {
+            $skipped[] = implode(',', $row);
+        }
+    }
+
+    fclose($handle);
+
+    // Logging
+    $this->logger->info("CSV import completed. Imported: $imported");
+    foreach ($skipped as $line) {
+        $this->logger->warning("Skipped CSV line: $line");
+    }
+
+    return $response->withHeader('Location', '/expenses')->withStatus(302);
+}
 }

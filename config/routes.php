@@ -13,6 +13,7 @@ return static function (App $app) {
     $app->get('/login', [AuthController::class, 'showLogin']);
     $app->post('/login', [AuthController::class, 'login']);
     $app->get('/logout', [AuthController::class, 'logout']);
+    $app->post('/expenses/import', [\App\Controllers\ExpenseController::class, 'import']);
 
     $app->group('', function (RouteCollectorProxy $firewalled) {
         $firewalled->get('/', [DashboardController::class, 'index']);
